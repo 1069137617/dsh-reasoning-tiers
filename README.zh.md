@@ -35,27 +35,30 @@ function reasoningInfo(model, defaultLevel) {
 
 ## 2. 安装
 
-```powershell
-dsh plugin --profile web add link:C:\path\to\dsh-reasoning-tiers
+从 npm 安装（推荐）：
+
+```sh
+dsh plugin --profile web add dsh-reasoning-tiers
 ```
 
 或直接从本仓库：
 
-```powershell
-dsh plugin --profile web add git+ssh://git@github.com/1069137617/dsh-reasoning-tiers.git
+```sh
+dsh plugin --profile web add git+https://github.com/1069137617/dsh-reasoning-tiers.git
 ```
 
 `prepare` 会在安装时构建 `lib/`。**装之前先备份** `~/.dsh/settings.yaml`：插件会改它所装
-profile 的 `llm-pi-ai` 节，而且 **bundle 是启动期读取的**，所以装完要重启 `dsh web`
+profile 的 `llm-pi-ai` 节，而且 **bundle 是启动期读取的**，所以装完要重启 DSH
 （`patchReload: live` 只热重载 profile 自己的 patch 文件）。重启后插件自报家门：
 
 ```
 [reasoning-tiers] mounted: autofill=true revert=false diagnose=true widenToGlobalEffort=false extraRules=0
 ```
 
-> **`link:` 安装注意**：依赖从**插件自己的** `node_modules` 解析（`peerDependencies` +
-> `devDependencies` 双写，`npm install` 会装）。不要在插件目录执行 `npm ci --omit=dev` /
-> `npm prune` / 删 `node_modules`，否则重启后插件加载失败。
+> **从本地目录安装时注意**：如果用本地路径（`dsh plugin add <目录>`）装，依赖会从**插件自己的**
+> `node_modules` 解析（`peerDependencies` + `devDependencies` 双写，`npm install` 会装）。
+> 不要在插件目录执行 `npm ci --omit=dev` / `npm prune` / 删 `node_modules`，否则重启后插件
+> 加载失败。从 npm 或 git 安装没有这个问题。
 
 ## 3. 它写什么——以及它拒绝写什么
 
@@ -151,11 +154,11 @@ MiniMax M、GPT-5、o-series、Claude、Gemini thinking、Grok-4。每个条目�
 
 ## 7. 开发
 
-```powershell
+```sh
 npm install
 npm run build        # tsc -> lib/
 npm test             # node --test，74 项
-node scripts/dry-run.mjs [--widen] [settings-path]   # 审计真实 settings.yaml，不写任何东西
+node scripts/dry-run.mjs [--widen] [settings-path]   # 审计一份 settings.yaml，不写任何东西
 ```
 
 规划器是"原始用户层 + 已解析配置 + 注入探测"的纯函数——这让整套策略不需要 Host、提供商或

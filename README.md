@@ -42,29 +42,32 @@ Capability is configuration, so that is what this plugin writes.
 
 ## Install
 
-```powershell
-dsh plugin --profile web add link:C:\path\to\dsh-reasoning-tiers
+From npm (recommended):
+
+```sh
+dsh plugin --profile web add dsh-reasoning-tiers
 ```
 
-or from this repository:
+or straight from this repository:
 
-```powershell
-dsh plugin --profile web add git+ssh://git@github.com/1069137617/dsh-reasoning-tiers.git
+```sh
+dsh plugin --profile web add git+https://github.com/1069137617/dsh-reasoning-tiers.git
 ```
 
 `prepare` builds `lib/` on install. Back up `~/.dsh/settings.yaml` first: the plugin edits the
 `llm-pi-ai` section of the profile it is installed into, and **bundle changes are read at boot**,
-so restart `dsh web` afterwards (`patchReload: live` only hot-reloads the profile's own patch
-file). After a restart the plugin announces itself:
+so restart DSH afterwards (`patchReload: live` only hot-reloads the profile's own patch file).
+After a restart the plugin announces itself:
 
 ```
 [reasoning-tiers] mounted: autofill=true revert=false diagnose=true widenToGlobalEffort=false extraRules=0
 ```
 
-> **`link:` installs**: dependencies resolve from the plugin's *own* `node_modules`
-> (`peerDependencies` + `devDependencies`, installed by `npm install`). Do not run
-> `npm ci --omit=dev`, `npm prune`, or delete `node_modules` in the plugin directory, or the
-> plugin will fail to load on the next boot.
+> **Developing from a local checkout**: if you install with a local path (`dsh plugin add <dir>`),
+> dependencies resolve from the plugin's *own* `node_modules` (`peerDependencies` +
+> `devDependencies`, installed by `npm install` inside the checkout). Do not run
+> `npm ci --omit=dev`, `npm prune`, or delete that `node_modules`, or the plugin will fail to
+> load on the next boot. Installing from npm or git does not have this caveat.
 
 ## What it writes — and what it refuses to
 
@@ -165,11 +168,11 @@ nothing is invented, and `xhigh`/`max` are never fabricated where a vendor does 
 
 ## Development
 
-```powershell
+```sh
 npm install
 npm run build        # tsc -> lib/
 npm test             # node --test, 74 tests
-node scripts/dry-run.mjs [--widen] [settings-path]   # audit a real settings.yaml, writes nothing
+node scripts/dry-run.mjs [--widen] [settings-path]   # audit a settings.yaml, writes nothing
 ```
 
 The planner is a pure function of the raw user layer, the resolved config, and one injected
