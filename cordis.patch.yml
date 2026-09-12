@@ -1,0 +1,28 @@
+# dsh-reasoning-tiers bundle patch: one host row over the profile.
+#
+# The row name resolves from the profile's own node_modules, where
+# `dsh plugin --profile web add <pkg>` installed this package.
+#
+# No `config:` block is declared here on purpose: every default lives in
+# src/config.ts, so a profile-level override merges cleanly without a bundle
+# value silently shadowing it. To change behaviour, add to the profile's own
+# cordis.patch.yml:
+#
+#   - id: reasoning-tiers
+#     config:
+#       autofill: false
+#       compatAutofill: true
+#       respectExisting: true
+#       diagnose: true
+#       widenToGlobalEffort: false
+#       alignGlobalEffort: false
+#       excludeModels: ["*embed*"]
+#       extraRules:
+#         - pattern: "^my-gateway-model$"
+#           ladder: { off: null, low: "low", high: "high" }
+#           dialect: { thinkingFormat: openai, supportsReasoningEffort: true }
+#
+# This profile runs with `patchReload: live`, so an edit takes effect on save.
+- insert:
+    - id: reasoning-tiers
+      name: dsh-reasoning-tiers
