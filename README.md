@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green.svg)](package.json)
-[![Tests](https://img.shields.io/badge/tests-88%20passing-brightgreen.svg)](#development)
+[![Tests](https://img.shields.io/badge/tests-92%20passing-brightgreen.svg)](#development)
 
 **Give third-party models a working reasoning-effort ladder — and editable model capabilities — in [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).**
 
@@ -132,6 +132,23 @@ under `llm-pi-ai` and edits three fields per model row:
 Both counts must be a positive integer; anything else is marked invalid inline and the save is
 refused before it reaches the Host.
 
+### Quick-pick steps
+
+Since 0.3.0 both number cells carry a `<datalist>`: focus the field (or use its dropdown arrow)
+and pick a step, or keep typing any value you like — the list is a suggestion, never a constraint.
+The step a typed value lands on shows in the field's tooltip (`Context window · 128K`).
+
+| Context window | 32768 | 65536 | 131072 | 200000 | 262144 | 272000 | 400000 | 1000000 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| label | 32K | 64K | 128K | 200K | 256K | 272K | 400K | 1M |
+| **Max output** | 1024 | 4096 | 16384 | 32768 | 65536 | 131072 | 262144 | |
+| label | 1K | 4K | 16K | 32K | 64K | 128K | 256K | |
+
+Values follow whoever actually publishes the number: binary where the pi-ai catalog and vendor
+configs spell it that way (128K = 131072, 256K = 262144), decimal where the announcement is decimal
+(200K = 200000, 1M = 1000000). Each nominal step appears exactly once, so no label carries two
+meanings. The table is one array in `src/capabilities.ts` — edit it there to add a step.
+
 ### The image switch is a true tri-state
 
 - **Follow catalog** (`inherit`) — the `input` field is deleted from the entry. The adapter treats
@@ -217,7 +234,7 @@ nothing is invented, and `xhigh`/`max` are never fabricated where a vendor does 
 npm install
 npm run build        # tsc -> lib/ (host) + esbuild -> lib/client.js (browser half)
 npm run typecheck    # both tsconfigs, no emit
-npm test             # node --test, 88 tests
+npm test             # node --test, 92 tests
 node scripts/dry-run.mjs [--widen] [settings-path]   # audit a settings.yaml, writes nothing
 node scripts/verify-install.mjs web                  # replay the host's bundle resolution
 ```

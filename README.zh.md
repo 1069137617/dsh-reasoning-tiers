@@ -117,6 +117,23 @@ the same request, so the thinking-intensity control cannot change anything.
 
 两个数字都必须是正整数；非法值就地标红，保存前就被拦下，不会到 Host。
 
+### 快捷档位
+
+0.3.0 起两个数字格都挂了 `<datalist>`：聚焦输入框（或点它的下拉箭头）就能选档位，也可以继续
+手输任意值——候选列表只是建议，从不是约束。手输的值命中哪一档，会显示在输入框的 tooltip 里
+（`上下文窗口 · 128K`）。
+
+| 上下文窗口 | 32768 | 65536 | 131072 | 200000 | 262144 | 272000 | 400000 | 1000000 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 标签 | 32K | 64K | 128K | 200K | 256K | 272K | 400K | 1M |
+| **输出上限** | 1024 | 4096 | 16384 | 32768 | 65536 | 131072 | 262144 | |
+| 标签 | 1K | 4K | 16K | 32K | 64K | 128K | 256K | |
+
+数值跟着真正发布它的人走：pi-ai catalog 与厂商配置用二进制的地方就是二进制（128K = 131072、
+256K = 262144），公告用十进制的地方就是十进制（200K = 200000、1M = 1000000）。每个名义档位只出
+现一次，所以没有哪个标签背两个含义。档位表就是 `src/capabilities.ts` 里的一个数组——要加档位，
+改那里。
+
 ### 图片开关是真三态
 
 - **跟随目录**（`inherit`）——从条目上删除 `input` 字段。适配器把缺失或空的 `input` 视为
@@ -196,7 +213,7 @@ MiniMax M、GPT-5、o-series、Claude、Gemini thinking、Grok-4。每个条目�
 npm install
 npm run build        # tsc -> lib/（host 半）+ esbuild -> lib/client.js（浏览器半）
 npm run typecheck    # 两份 tsconfig，不产出
-npm test             # node --test，88 项
+npm test             # node --test，92 项
 node scripts/dry-run.mjs [--widen] [settings-path]   # 审计一份 settings.yaml，不写任何东西
 node scripts/verify-install.mjs web                  # 重放宿主的 bundle 解析链
 ```

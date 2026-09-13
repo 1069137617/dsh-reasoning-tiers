@@ -215,3 +215,65 @@ export function bindScope<Snap>(scope: ScopeShape<Snap>): ScopeShape<Snap> {
     mutate: (ops, expectedRevision) => scope.mutate(ops, expectedRevision),
   }
 }
+
+/** Which count field a preset ladder belongs to. */
+export type CountField = 'context' | 'max'
+
+/** One quick-pick step: the byte value written, and the name shown beside it. */
+export interface CountPreset {
+  readonly value: number
+  readonly label: string
+}
+
+/**
+ * Context-window steps. Values follow whoever actually publishes them: binary
+ * where the pi-ai catalog and vendor configs spell them that way (32K=32768,
+ * 128K=131072, 256K=262144), decimal where the vendor announcement is decimal
+ * (200K=200000, 272K=272000, 400K=400000, 1M=1000000). One nominal step keeps a
+ * single value, so no label appears twice with two meanings.
+ */
+const CONTEXT_PRESETS: readonly CountPreset[] = freeze([
+  { value: 32768, label: '32K' },
+  { value: 65536, label: '64K' },
+  { value: 131072, label: '128K' },
+  { value: 200000, label: '200K' },
+  { value: 262144, label: '256K' },
+  { value: 272000, label: '272K' },
+  { value: 400000, label: '400K' },
+  { value: 1000000, label: '1M' },
+])
+
+/** Output-cap steps: always binary, the convention every provider ships. */
+const MAX_PRESETS: readonly CountPreset[] = freeze([
+  { value: 1024, label: '1K' },
+  { value: 4096, label: '4K' },
+  { value: 16384, label: '16K' },
+  { value: 32768, label: '32K' },
+  { value: 65536, label: '64K' },
+  { value: 131072, label: '128K' },
+  { value: 262144, label: '256K' },
+])
+
+/** Deep-freeze a preset table read on every render. */
+function freeze(list: readonly CountPreset[]): readonly CountPreset[] {
+  list.forEach((preset) => Object.freeze(preset))
+  return Object.freeze(list)
+}
+
+/**
+ * The preset ladder for one count field, ascending. A stable frozen reference:
+ * the page reads it per render to fill its datalists.
+ */
+export function countPresets(field: CountField): readonly CountPreset[] {
+  return field === 'context' ? CONTEXT_PRESETS : MAX_PRESETS
+}
+
+/** The `<datalist>` id for one field — used by the list and every input, so they cannot drift. */
+export function presetListId(field: CountField): string {
+  return `dsh-rt-cap-${field}-presets`
+}
+
+/** The human name of an exact preset value; undefined when the number is not one. */
+export function presetLabel(value: number, field: CountField): string | undefined {
+  return countPresets(field).find((preset) => preset.value === value)?.label
+}

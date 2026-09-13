@@ -10,8 +10,8 @@
  */
 import type { ReactNode } from 'react'
 import { useCallback, useState, useSyncExternalStore } from 'react'
-import type { ImageMode, ModelDraft, PathOp, ProviderDraft } from './capabilities.ts'
-import { buildMutateOps, draftsKey, invalidField, parseProviders } from './capabilities.ts'
+import type { CountField, ImageMode, ModelDraft, PathOp, ProviderDraft } from './capabilities.ts'
+import { buildMutateOps, countPresets, countValue, draftsKey, invalidField, parseProviders, presetLabel, presetListId } from './capabilities.ts'
 
 /** Raw snapshot face the bound settings scope serves (structurally typed). */
 export interface CapabilitiesSnapshot {
@@ -90,13 +90,19 @@ function CapabilitiesBody(props: CapabilitiesFace & { snapshot: CapabilitiesSnap
 
   const numberCell = useCallback(
     (p: ProviderDraft, index: number, draft: ModelDraft, field: 'contextText' | 'maxText', label: string) => {
-      const invalid = invalidField(draft) === (field === 'contextText' ? 'context' : 'max')
+      const kind: CountField = field === 'contextText' ? 'context' : 'max'
+      const invalid = invalidField(draft) === kind
+      // Naming the step a typed value lands on, so the decimal/binary choice is
+      // visible rather than guessed from a bare number.
+      const numeric = countValue(draft[field])
+      const step = numeric === undefined ? undefined : presetLabel(numeric, kind)
       return (
         <input
           className={`dsh-rt-cap-input${invalid ? ' dsh-rt-cap-invalid' : ''}`}
           inputMode="numeric"
+          list={presetListId(kind)}
           placeholder={t('inheritMark')}
-          title={label}
+          title={step === undefined ? label : `${label} · ${step}`}
           value={draft[field]}
           disabled={!writable}
           onChange={(event) =>
@@ -110,10 +116,11 @@ function CapabilitiesBody(props: CapabilitiesFace & { snapshot: CapabilitiesSnap
 
   return (
     <div>
+      <PresetOptions field="context" />
+      <PresetOptions field="max" />
       {!snapshot.writable && <p className="dsh-rt-cap-hint">{t('readOnlyHint')}</p>}
       {snapshot.writable && <p className="dsh-rt-cap-hint">{t('restartHint')}</p>}
-      {providers.map((p) => {
-        const rows = rowsOf(p)
+      {providers.map((p) => {        const rows = rowsOf(p)
         const dirty = dirtyOf(p)
         return (
           <fieldset key={p.route} className="dsh-rt-cap-group" disabled={!writable || busy === p.route}>
@@ -210,5 +217,22 @@ function CapabilitiesBody(props: CapabilitiesFace & { snapshot: CapabilitiesSnap
         )
       })}
     </div>
+  )
+}
+
+/**
+ * One shared quick-pick list: mounted once per field for the whole page and
+ * referenced by every row's `list` attribute through the same
+ * {@link presetListId} call, so the two sides cannot drift.
+ */
+function PresetOptions({ field }: { field: CountField }): ReactNode {
+  return (
+    <datalist id={presetListId(field)}>
+      {countPresets(field).map((preset) => (
+        <option key={preset.value} value={String(preset.value)}>
+          {preset.label}
+        </option>
+      ))}
+    </datalist>
   )
 }

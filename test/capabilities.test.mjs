@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   parseProviders, rebuildEntry, invalidField, buildMutateOps, draftsKey,
   isValidCountText, countValue, emptyOverrideRow, bindScope,
+  countPresets, presetLabel,
 } from '../lib/capabilities.js'
 
 const RESOLVED = { providers: { 'qwen-cn': { apiKeyEnv: 'QWEN_KEY' }, 'openai': { apiKeyEnv: 'O' } } }
@@ -149,4 +150,52 @@ test('bindScope: mutate forwards ops and the optional revision fence', async () 
   const ops = [{ op: 'unset', path: ['providers', 'openai', 'modelOverrides'] }]
   assert.deepEqual(await mutate(ops, 3), { count: 1, expectedRevision: 3 })
   assert.deepEqual(await mutate(ops), { count: 1, expectedRevision: undefined })
+})
+
+// The quick-pick datalist: presets are a data table, so its shape is a
+// contract — every row must be a value the number field itself would accept,
+// or a click would write something the save gate rejects.
+test('countPresets: ascending, value-unique, every value a valid count', () => {
+  for (const field of ['context', 'max']) {
+    const list = countPresets(field)
+    assert.ok(list.length > 3, `${field} presets should offer a real ladder`)
+    const values = list.map((p) => p.value)
+    assert.deepEqual(values, [...values].sort((a, b) => a - b), `${field} presets must ascend`)
+    assert.equal(new Set(values).size, values.length, `${field} preset values must be unique`)
+    assert.equal(new Set(list.map((p) => p.label)).size, values.length, `${field} preset labels must be unique`)
+    for (const preset of list) {
+      assert.ok(Number.isInteger(preset.value) && preset.value > 0, `${field} ${preset.value} must be a positive integer`)
+      assert.ok(isValidCountText(String(preset.value)), `${field} ${preset.value} must round-trip through the field parser`)
+      assert.ok(preset.label.length > 0)
+    }
+  }
+})
+
+test('countPresets: covers the values real configurations and catalogs use', () => {
+  const context = countPresets('context').map((p) => p.value)
+  // Binary steps as the pi-ai catalog spells them, decimal steps as vendors publish them.
+  for (const value of [32768, 131072, 200000, 262144, 272000, 400000, 1000000]) {
+    assert.ok(context.includes(value), `context presets must offer ${value}`)
+  }
+  const max = countPresets('max').map((p) => p.value)
+  for (const value of [1024, 4096, 32768, 131072]) {
+    assert.ok(max.includes(value), `max presets must offer ${value}`)
+  }
+  assert.ok(!max.includes(1000000), 'an output cap of 1M is not a step anyone ships')
+})
+
+test('countPresets: stable frozen identity (the component reads it per render)', () => {
+  const first = countPresets('context')
+  assert.equal(first, countPresets('context'))
+  assert.ok(Object.isFrozen(first))
+  assert.ok(first.every((preset) => Object.isFrozen(preset)))
+})
+
+test('presetLabel: resolves a step, declines anything else', () => {
+  assert.equal(presetLabel(262144, 'context'), '256K')
+  assert.equal(presetLabel(1000000, 'context'), '1M')
+  assert.equal(presetLabel(131072, 'max'), '128K')
+  assert.equal(presetLabel(131072, 'context'), '128K')
+  assert.equal(presetLabel(152000, 'context'), undefined)
+  assert.equal(presetLabel(4, 'max'), undefined)
 })
