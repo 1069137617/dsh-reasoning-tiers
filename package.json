@@ -1,7 +1,7 @@
 {
   "name": "dsh-reasoning-tiers",
-  "version": "0.1.0",
-  "description": "DeepSeek Harness 插件：为第三方模型提供商的模型自动匹配模型名称并补齐推理档位（reasoning effort），使思考强度选择器在官方模型选择器中可用。Third-party DSH plugin that matches model ids against a built-in knowledge table and declares per-model reasoning tiers in the llm-pi-ai settings section.",
+  "version": "0.2.0",
+  "description": "DeepSeek Harness 插件：为第三方模型提供商的模型自动匹配模型名称并补齐推理档位（reasoning effort），使思考强度选择器在官方模型选择器中可用；并在设置页提供「模型能力」页，可编辑每个已添加模型的上下文窗口/输出上限/图片多模态。Third-party DSH plugin that matches model ids against a built-in knowledge table, declares per-model reasoning tiers in the llm-pi-ai settings section, and adds a settings page for per-model context window, output cap and image modality.",
   "keywords": [
     "dsh",
     "dsh-plugin",
@@ -26,6 +26,9 @@
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
     },
+    "./client": {
+      "default": "./lib/client.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -38,6 +41,10 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
     }
   },
   "engines": {
@@ -51,11 +58,15 @@
   "license": "MIT",
   "scripts": {
     "prepare": "npm run build",
-    "build": "tsc -p tsconfig.json",
+    "build": "npm run build:host && npm run build:client",
+    "build:host": "tsc -p tsconfig.json",
+    "build:client": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
     "clean": "node -e \"require('node:fs').rmSync('lib',{recursive:true,force:true})\"",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
     "pretest": "npm run build",
     "test": "node --test",
+    "verify:install": "node scripts/verify-install.mjs",
     "prepublishOnly": "npm test"
   },
   "peerDependencies": {
@@ -66,10 +77,10 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.2",
-    "@deepseek-ai/dsh-client-locale": "^0.1.5-rc.2",
-    "@deepseek-ai/dsh-client-ui-renderer": "^0.1.5-rc.2",
-    "@deepseek-ai/dsh-client-ui-settings": "^0.1.5-rc.2",
-    "@deepseek-ai/dsh-client-ui-slots": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-locale": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "0.1.5-rc.2",
     "@deepseek-ai/dsh-home-paths": "0.1.5-rc.2",
     "@deepseek-ai/dsh-llm": "0.1.5-rc.2",
     "@deepseek-ai/dsh-settings": "0.1.5-rc.2",
