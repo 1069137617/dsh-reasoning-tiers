@@ -2,16 +2,19 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green.svg)](package.json)
-[![Tests](https://img.shields.io/badge/tests-74%20passing-brightgreen.svg)](#development)
+[![Tests](https://img.shields.io/badge/tests-85%20passing-brightgreen.svg)](#development)
 
-**Give third-party models a working reasoning-effort ladder in [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).**
+**Give third-party models a working reasoning-effort ladder — and editable model capabilities — in [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).**
 
-A host-only DSH plugin that matches third-party model ids against a built-in knowledge table and
-declares their reasoning tiers in the `llm-pi-ai` settings section — so the effort selector that
-ships with DSH finally does something for models the pi-ai catalog does not describe.
+A DSH plugin that matches third-party model ids against a built-in knowledge table and declares
+their reasoning tiers in the `llm-pi-ai` settings section — so the effort selector that ships with
+DSH finally does something for models the pi-ai catalog does not describe. New in 0.2.0: a browser
+half that adds a **Model Capabilities** page to the settings panel, where each added model's
+context window, output cap, and image modality become editable fields.
 
-No UI injection, no adapter takeover, no request interception. It writes settings, once,
-conservatively, and with an undo. 中文文档：[README.zh.md](README.zh.md)
+No adapter takeover, no request interception. The tier writes happen once, conservatively, and
+with an undo; the capabilities page only edits the provider's own settings through the standard
+settings transport. 中文文档：[README.zh.md](README.zh.md)
 
 ---
 
@@ -114,10 +117,52 @@ If you know your gateway accepts `reasoning_effort`, say so explicitly:
         dialect: { supportsReasoningEffort: true }   # this is the part that actually works
 ```
 
+## Model Capabilities page
+
+Since 0.2.0 the plugin ships a browser half that registers one entry into the `settings.section`
+list slot: **Settings → Model Capabilities** (设置 → 模型能力). It lists every route configured
+under `llm-pi-ai` and edits three fields per model row:
+
+| Field | Settings key | Empty cell means |
+| --- | --- | --- |
+| Context window | `contextWindow` | Inherit — the field is removed and the catalog value applies. |
+| Max output tokens | `maxTokens` | Inherit, same rule. |
+| Image input | `input` | Three states, see below. |
+
+Both counts must be a positive integer; anything else is marked invalid inline and the save is
+refused before it reaches the Host.
+
+### The image switch is a true tri-state
+
+- **Follow catalog** (`inherit`) — the `input` field is deleted from the entry. The adapter treats
+  an absent or empty `input` as "no answer" and falls back to the catalog model
+  (`dsh-llm-pi-ai/lib/index.js:292-294`).
+- **On** — writes `input: ["text", "image"]`; image requests pass the per-request gate.
+- **Off** — writes `input: ["text"]`, an explicit negative capability. An image-bearing request
+  then throws `UNSUPPORTED_CONTENT` (`dsh-llm-pi-ai/lib/index.js:1844-1845`) instead of being
+  silently degraded by the provider.
+
+### Two write shapes, one per route kind
+
+- **Declared models list** — routes whose user layer declares a `models[]` array. The page drafts
+  the entire array and commits it as one `set` of `providers.<route>.models` — the official Models
+  editor's convention, so fields the page does not manage (`name`, `reasoningEfforts`, anything
+  custom) survive untouched.
+- **Catalog routes** — the page writes `providers.<route>.modelOverrides` as a dict keyed by model
+  id. An "Add override" row pins a capability for a catalog model without declaring it; an emptied
+  dict is `unset`, returning the route to pure catalog inheritance.
+
+All writes go through the settings scope's revision-fenced `mutate`; a conflict (the configuration
+changed elsewhere) asks you to reload the page and re-apply. Where the deployment does not accept
+browser settings writes (memory mode) the page renders read-only. Changes apply after a restart.
+
+**Out of scope:** `llm-deepseek` routes (a different adapter and namespace), and every namespace
+other than `llm-pi-ai`.
+
 ## Configuration
 
-Configuration lives in the bundle's `cordis.patch.yml` entry (not a settings namespace, so the
-plugin owns no settings page — the one thing it changes lives in the provider's own section).
+The plugin's *own* configuration lives in the bundle's `cordis.patch.yml` entry. (The Model
+Capabilities page above edits the provider's own `llm-pi-ai` namespace, not this config.)
 The shipped bundle declares **no** `config:` block on purpose, so profile-level overrides merge
 cleanly:
 
@@ -170,15 +215,20 @@ nothing is invented, and `xhigh`/`max` are never fabricated where a vendor does 
 
 ```sh
 npm install
-npm run build        # tsc -> lib/
-npm test             # node --test, 74 tests
+npm run build        # tsc -> lib/ (host) + esbuild -> lib/client.js (browser half)
+npm run typecheck    # both tsconfigs, no emit
+npm test             # node --test, 85 tests
 node scripts/dry-run.mjs [--widen] [settings-path]   # audit a settings.yaml, writes nothing
+node scripts/verify-install.mjs web                  # replay the host's bundle resolution
 ```
 
 The planner is a pure function of the raw user layer, the resolved config, and one injected
 capability probe — which is what makes the whole policy testable without a Host, a provider, or a
-network. `test/wiring.test.mjs` is the one place the seams are exercised, against a fake Cordis
-context.
+network. The capabilities page follows the same discipline: its edit/draft/op model is
+`src/capabilities.ts`, a plain module over plain JSON (`test/capabilities.test.mjs`), and the
+React component only renders. `test/wiring.test.mjs` is the one place the host seams are
+exercised, against a fake Cordis context; `test/client-bundle.test.mjs` holds the browser bundle
+to its loader contract.
 
 ## Known limitations
 
@@ -189,7 +239,7 @@ context.
 - **`llm-deepseek` routes are out of scope** (`deepseek-official` uses another adapter whose tier
   set comes from route-level `thinking`/`reasoningEffort`, and whose `models[]` schema does not
   accept `reasoningEfforts`).
-- Only the `llm-pi-ai` namespace is covered.
+- Only the `llm-pi-ai` namespace is covered — by both the tier writes and the capabilities page.
 - Flat-ladder detection is a **fingerprint**, not a probe: an offered set of exactly
   `off/minimal/low/medium/high` is the shape `getSupportedThinkingLevels` produces for an absent
   `thinkingLevelMap` (`pi-ai/dist/models.js:551-561`). A provider that genuinely maps all five

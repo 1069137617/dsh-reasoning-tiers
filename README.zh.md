@@ -1,10 +1,12 @@
 # dsh-reasoning-tiers
 
-为第三方模型提供商的模型补齐**推理档位（reasoning effort / 思考强度）**的 DeepSeek Harness 插件。
-Host 侧运行，无自定义 UI：按模型名匹配内置知识表，把档位声明写进 `llm-pi-ai` 设置节，让官方的
-思考强度选择器真正可用。English: [README.md](README.md)
+为第三方模型提供商的模型补齐**推理档位（reasoning effort / 思考强度）**、并让**模型能力可视化编辑**
+的 DeepSeek Harness 插件：按模型名匹配内置知识表，把档位声明写进 `llm-pi-ai` 设置节，让官方的
+思考强度选择器真正可用；0.2.0 起新增浏览器半，在设置面板注册「模型能力」页，每个已添加模型的
+上下文窗口、输出上限、图片多模态都能直接编辑。English: [README.md](README.md)
 
-MIT。不注入 UI、不占用适配器、不拦截请求——它只写设置，一次性、保守、可撤销。
+MIT。不占用适配器、不拦截请求——档位只写设置，一次性、保守、可撤销；能力页也只走标准设置
+通道，改的是提供商自己的命名空间。
 
 ---
 
@@ -102,10 +104,46 @@ the same request, so the thinking-intensity control cannot change anything.
         dialect: { supportsReasoningEffort: true }   # 这一步才是"真的能调"
 ```
 
-## 5. 配置
+## 5. 模型能力页
 
-配置走 bundle 的 `cordis.patch.yml` 条目（不占用 settings 命名空间，插件没有自己的设置页——
-它改的那一个值在提供商自己的节里，用户可以直接看、直接改）。随包条目**故意不带** `config:`，
+0.2.0 起插件带浏览器半，往 `settings.section` 列表槽位注册一个条目：**设置 → 模型能力**。
+页面列出 `llm-pi-ai` 下已配置的每条路由，每个模型行可编辑三个字段：
+
+| 字段 | 设置键 | 留空含义 |
+| --- | --- | --- |
+| 上下文窗口 | `contextWindow` | 继承——删除该字段，回退 catalog 值。 |
+| 输出上限 | `maxTokens` | 同上。 |
+| 图片输入 | `input` | 三态，见下。 |
+
+两个数字都必须是正整数；非法值就地标红，保存前就被拦下，不会到 Host。
+
+### 图片开关是真三态
+
+- **跟随目录**（`inherit`）——从条目上删除 `input` 字段。适配器把缺失或空的 `input` 视为
+  "无答案"，回退 catalog 模型（`dsh-llm-pi-ai/lib/index.js:292-294`）。
+- **开启**——写 `input: ["text", "image"]`，图片请求通过逐请求门禁。
+- **关闭**——写 `input: ["text"]`，显式的否定能力。带图片的请求会抛
+  `UNSUPPORTED_CONTENT`（`dsh-llm-pi-ai/lib/index.js:1844-1845`），而不是被提供商静默降级。
+
+### 两种写法，按路由类型二选一
+
+- **已声明的模型列表**——用户层声明了 `models[]` 的路由。页面整表起草，以**一次** `set` 提交
+  `providers.<route>.models`——官方模型页编辑器的同一约定，页面不管的字段（`name`、
+  `reasoningEfforts`、任何自定义字段）原样保留。
+- **catalog 路由**——页面把 `providers.<route>.modelOverrides` 写成以模型 id 为键的字典。
+  「添加覆盖」可以在不声明模型的前提下钉死一个 catalog 模型的能力；字典清空则 `unset`，
+  路由回到纯 catalog 继承。
+
+所有写入都走设置作用域带 revision 围栏的 `mutate`；冲突（配置在别处被改）会提示刷新页面重试。
+部署不接受浏览器写设置时（memory 模式）页面只读。改动重启后生效。
+
+**不在范围**：`llm-deepseek` 路由（另一个适配器与命名空间），以及 `llm-pi-ai` 以外的所有
+命名空间。
+
+## 6. 配置
+
+插件**自己**的配置走 bundle 的 `cordis.patch.yml` 条目。（上面的模型能力页改的是提供商自己的
+`llm-pi-ai` 命名空间，不是这份配置。）随包条目**故意不带** `config:`，
 让 profile 级覆盖干净地合并：
 
 ```yaml
@@ -144,7 +182,7 @@ the same request, so the thinking-intensity control cannot change anything.
 | `bootRetryDelaysMs` | `[1000…30000]` | 启动期重试表。 |
 | `extraRules` | `[]` | 自定义规则；每项取 `pattern`（正则）/ `prefix` / `exact` 之一，外加 `ladder`，可选 `dialect` 与 `protocols`。非法规则只丢自己并给出原因。 |
 
-## 6. 内置知识表
+## 7. 内置知识表
 
 随插件带 12 个模型族：Qwen3、DeepSeek V4、DeepSeek R1/V3.1、GLM-5、GLM-4.5V、Kimi K2、
 MiniMax M、GPT-5、o-series、Claude、Gemini thinking、Grok-4。每个条目写明档位、可选方言、
@@ -152,32 +190,37 @@ MiniMax M、GPT-5、o-series、Claude、Gemini thinking、Grok-4。每个条目�
 未知协议不继承方言；没有推理分发的协议一个档位都不给——不臆造任何东西，厂商没拼写的
 `xhigh`/`max` 绝不发明。
 
-## 7. 开发
+## 8. 开发
 
 ```sh
 npm install
-npm run build        # tsc -> lib/
-npm test             # node --test，74 项
+npm run build        # tsc -> lib/（host 半）+ esbuild -> lib/client.js（浏览器半）
+npm run typecheck    # 两份 tsconfig，不产出
+npm test             # node --test，85 项
 node scripts/dry-run.mjs [--widen] [settings-path]   # 审计一份 settings.yaml，不写任何东西
+node scripts/verify-install.mjs web                  # 重放宿主的 bundle 解析链
 ```
 
 规划器是"原始用户层 + 已解析配置 + 注入探测"的纯函数——这让整套策略不需要 Host、提供商或
-网络就能测。`test/wiring.test.mjs` 是唯一触碰接缝的测试，用假 Cordis Context 覆盖。
+网络就能测。能力页同一纪律：编辑/草稿/op 模型在 `src/capabilities.ts`，纯模块配纯 JSON
+（`test/capabilities.test.mjs`），React 组件只负责呈现。`test/wiring.test.mjs` 是唯一触碰
+宿主接缝的测试（假 Cordis Context）；`test/client-bundle.test.mjs` 把浏览器 bundle 按
+加载器契约锁死。
 
-## 8. 已知限制
+## 9. 已知限制
 
 - **平档无法自动修复**：`reasoningEfforts` 改菜单，改不了适配器是否发 effort 字符串。见 §4。
 - **`widenToGlobalEffort` 是断言**：给 catalog 标为不支持的档位（`high: null`）补档，等于断言
   上游接受它。默认关、`medium` 置信度、有账本。
 - **`llm-deepseek` 路由不在范围**（`deepseek-official` 走另一个适配器，档位来自路由级
   `thinking`/`reasoningEffort`，其 `models[]` 模式不接受 `reasoningEfforts`）。
-- 只覆盖 `llm-pi-ai` 命名空间。
+- 只覆盖 `llm-pi-ai` 命名空间——档位写入与能力页都是。
 - 平档判定是**指纹**不是探测：报告出来的集合恰好是 `off/minimal/low/medium/high` 就判平档
   （`getSupportedThinkingLevels` 对缺失 `thinkingLevelMap` 的处理，`pi-ai/dist/models.js:551-561`）。
   真把五档映射成五种拼写的 provider 会被误判。`scripts/dry-run.mjs` 把指纹和 catalog 两种
   判定都打出来供交叉验证。
 
-## 9. 致谢
+## 10. 致谢
 
 先行工作：[`dsh-better-reasoning-effort`](https://www.npmjs.com/package/dsh-better-reasoning-effort)
 （HaoyueQin，MIT）功能更多——模型行 DOM 编辑器、`/models` 探测、composer 滑杆。本插件是精简的
