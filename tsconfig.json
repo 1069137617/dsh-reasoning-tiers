@@ -20,5 +20,5 @@
     "verbatimModuleSyntax": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/index.ts", "src/ladder.ts", "src/plan.ts", "src/protocol.ts", "src/knowledge.ts", "src/journal.ts", "src/config.ts", "src/capabilities.ts"]
 }
