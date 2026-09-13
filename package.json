@@ -1,6 +1,6 @@
 {
   "name": "dsh-reasoning-tiers",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "DeepSeek Harness 插件：为第三方模型提供商的模型自动匹配模型名称并补齐推理档位（reasoning effort），使思考强度选择器在官方模型选择器中可用；并在设置页提供「模型能力」页，可编辑每个已添加模型的上下文窗口/输出上限/图片多模态。Third-party DSH plugin that matches model ids against a built-in knowledge table, declares per-model reasoning tiers in the llm-pi-ai settings section, and adds a settings page for per-model context window, output cap and image modality.",
   "keywords": [
     "dsh",

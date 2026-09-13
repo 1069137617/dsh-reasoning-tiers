@@ -196,7 +196,7 @@ MiniMax M、GPT-5、o-series、Claude、Gemini thinking、Grok-4。每个条目�
 npm install
 npm run build        # tsc -> lib/（host 半）+ esbuild -> lib/client.js（浏览器半）
 npm run typecheck    # 两份 tsconfig，不产出
-npm test             # node --test，85 项
+npm test             # node --test，88 项
 node scripts/dry-run.mjs [--widen] [settings-path]   # 审计一份 settings.yaml，不写任何东西
 node scripts/verify-install.mjs web                  # 重放宿主的 bundle 解析链
 ```

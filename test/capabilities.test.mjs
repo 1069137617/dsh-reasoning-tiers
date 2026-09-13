@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   parseProviders, rebuildEntry, invalidField, buildMutateOps, draftsKey,
-  isValidCountText, countValue, emptyOverrideRow,
+  isValidCountText, countValue, emptyOverrideRow, bindScope,
 } from '../lib/capabilities.js'
 
 const RESOLVED = { providers: { 'qwen-cn': { apiKeyEnv: 'QWEN_KEY' }, 'openai': { apiKeyEnv: 'O' } } }
@@ -111,4 +111,42 @@ test('draftsKey is stable and order-sensitive', () => {
   const [p] = parseProviders(RESOLVED, USER)
   assert.equal(draftsKey(p.models), draftsKey([...p.models]))
   assert.notEqual(draftsKey(p.models), draftsKey(p.models.map(m => ({ ...m, image: 'on' }))))
+})
+
+// Regression: the page hands scope.getSnapshot / scope.subscribe to
+// useSyncExternalStore as bare functions, and React calls them with no
+// receiver. The real SettingsScopeController keeps those on its PROTOTYPE and
+// reads `this.store` (dsh-client-ui-settings/lib/client.js:997-1006), so a
+// detached call threw TypeError and the list-slot entry abdicated: the nav row
+// stayed (it reads the raw ledger) while the section went blank. The bound face
+// must therefore own its members and survive being called bare.
+class ControllerLike {
+  constructor() { this.store = { snapshot: { status: 'ready', revision: 7 } } }
+  getSnapshot() { return this.store.snapshot }
+  subscribe(listener) { (this.listeners ??= []).push(listener); return () => { this.listeners = [] } }
+  mutate(ops, expectedRevision) { return Promise.resolve({ count: ops.length, expectedRevision }) }
+}
+
+test('bindScope: detached calls work on a controller whose methods need `this`', () => {
+  const controller = new ControllerLike()
+  const face = bindScope(controller)
+  const { getSnapshot, subscribe } = face
+  assert.deepEqual(getSnapshot(), { status: 'ready', revision: 7 })
+  assert.equal(typeof subscribe(() => {}), 'function')
+  assert.equal(controller.listeners.length, 1)
+})
+
+test('bindScope: members are own properties, not inherited prototype slots', () => {
+  const face = bindScope(new ControllerLike())
+  for (const key of ['getSnapshot', 'subscribe', 'mutate']) {
+    assert.ok(Object.prototype.hasOwnProperty.call(face, key), `${key} must be an own property`)
+  }
+})
+
+test('bindScope: mutate forwards ops and the optional revision fence', async () => {
+  const face = bindScope(new ControllerLike())
+  const { mutate } = face
+  const ops = [{ op: 'unset', path: ['providers', 'openai', 'modelOverrides'] }]
+  assert.deepEqual(await mutate(ops, 3), { count: 1, expectedRevision: 3 })
+  assert.deepEqual(await mutate(ops), { count: 1, expectedRevision: undefined })
 })

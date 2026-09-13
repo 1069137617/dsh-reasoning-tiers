@@ -23,6 +23,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 
 import { CapabilitiesPage } from './CapabilitiesPage.tsx'
+import { bindScope } from './capabilities.ts'
 import { NS, en, zh } from './locales.ts'
 import { injectStyles } from './styles.ts'
 
@@ -54,7 +55,9 @@ export function apply(ctx: Context): void {
           order: ORDER,
           label: () => translate('pageLabel'),
           locale: NS,
-          inject: () => ({ scope: binder.bind({ namespace: 'llm-pi-ai' }), t: translate }),
+          // bindScope: the page hands getSnapshot/subscribe to React bare, and
+          // the controller's methods are prototype slots that need `this`.
+          inject: () => ({ scope: bindScope(binder.bind({ namespace: 'llm-pi-ai' })), t: translate }),
         },
         CapabilitiesPage,
       ),

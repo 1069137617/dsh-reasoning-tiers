@@ -185,3 +185,33 @@ export function buildMutateOps(draft: ProviderDraft): PathOp[] {
 export function draftsKey(models: readonly ModelDraft[]): string {
   return JSON.stringify(models.map((m) => [m.id, m.contextText, m.maxText, m.image]))
 }
+
+/** The three calls the page makes on its bound settings scope (structural, so no package edge). */
+export interface ScopeShape<Snap> {
+  getSnapshot(): Snap
+  subscribe(listener: () => void): () => void
+  mutate(ops: readonly PathOp[], expectedRevision?: number): Promise<void>
+}
+
+/**
+ * Re-home a scope's methods onto own properties.
+ *
+ * `useSyncExternalStore` calls `subscribe` and `getSnapshot` with no receiver,
+ * while the Host's `SettingsScopeController` keeps them on its prototype and
+ * reads `this.store` (`dsh-client-ui-settings/lib/client.js:997-1006`). Detached,
+ * that throws — and a `list`-slot entry crash abdicates the entry
+ * (`dsh-client-ui-renderer/lib/client.js:790`), so the section renders its empty
+ * crash face while the nav row survives: the row reads the raw ledger
+ * (`dsh-client-ui-settings-general/lib/client.js:566`). That is the blank-page
+ * signature this face exists to prevent.
+ *
+ * Built once per inject-face creation (the renderer caches the inject result per
+ * entry), so the member identities stay stable across renders.
+ */
+export function bindScope<Snap>(scope: ScopeShape<Snap>): ScopeShape<Snap> {
+  return {
+    getSnapshot: () => scope.getSnapshot(),
+    subscribe: (listener) => scope.subscribe(listener),
+    mutate: (ops, expectedRevision) => scope.mutate(ops, expectedRevision),
+  }
+}

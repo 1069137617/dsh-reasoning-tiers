@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green.svg)](package.json)
-[![Tests](https://img.shields.io/badge/tests-85%20passing-brightgreen.svg)](#development)
+[![Tests](https://img.shields.io/badge/tests-88%20passing-brightgreen.svg)](#development)
 
 **Give third-party models a working reasoning-effort ladder — and editable model capabilities — in [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).**
 
@@ -217,7 +217,7 @@ nothing is invented, and `xhigh`/`max` are never fabricated where a vendor does 
 npm install
 npm run build        # tsc -> lib/ (host) + esbuild -> lib/client.js (browser half)
 npm run typecheck    # both tsconfigs, no emit
-npm test             # node --test, 85 tests
+npm test             # node --test, 88 tests
 node scripts/dry-run.mjs [--widen] [settings-path]   # audit a settings.yaml, writes nothing
 node scripts/verify-install.mjs web                  # replay the host's bundle resolution
 ```
