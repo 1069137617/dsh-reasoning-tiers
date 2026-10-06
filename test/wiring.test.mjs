@@ -2,9 +2,10 @@
  * Wiring: `apply()` against a fake Cordis context.
  *
  * Everything else in this suite tests a pure function. This file is the only
- * place the seams are exercised — `settings.describe/get/update/mutate`, the
- * live model probe, the boot retry, and the on-disk ledger — so a broken
- * integration fails here instead of in the user's profile.
+ * place the seams are exercised — `settings.describe/update/mutate` (0.2.0
+ * shape, plus one legacy `settings.get` pass), the live model probe, the boot
+ * retry, and the on-disk ledger — so a broken integration fails here instead
+ * of in the user's profile.
  */
 import assert from 'node:assert/strict'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
@@ -35,6 +36,8 @@ function merge(target, patch) {
 
 /**
  * A fake Host: one settings namespace, one model probe, recorded log lines.
+ * Shaped like 0.2.0 — `describe()` carries the resolved section on `value`, and
+ * the removed `get(ns)` is absent — so the compatibility path is what runs.
  * @param user - the raw `llm-pi-ai` user layer, mutated by `update`.
  * @param tiers - offered effort ids per `route/model`.
  * @param globalEffort - the deployment's `agent-default-model.reasoningEffort`.
@@ -54,8 +57,7 @@ function fakeHost(user, tiers, globalEffort) {
     effect: () => () => {},
     on: () => () => {},
     settings: {
-      describe: () => [state],
-      get: (ns) => (ns === 'agent-default-model' ? { reasoningEffort: globalEffort } : undefined),
+      describe: () => [state, { ns: 'agent-default-model', value: { reasoningEffort: globalEffort }, revision: 7 }],
       update: async (_ns, patch) => {
         updates.push(patch)
         merge(state.user, patch)
@@ -205,5 +207,21 @@ test('a rejected extra rule is reported without poisoning the built-in table', a
       ['off', 'low', 'medium', 'high', 'xhigh'],
       'the built-in entry wrote the ladder, not the rejected rule',
     )
+  })
+})
+
+test('a 0.1.x host answers the default effort through the legacy settings.get', async () => {
+  await withHome(async () => {
+    const user = { providers: { acme: { api: 'openai-completions', models: [{ id: 'qwen3.8-flash' }] } } }
+    const { context, log } = fakeHost(user, { 'acme/qwen3.8-flash': ['off', 'low', 'medium', 'xhigh'] }, 'high')
+    // Strip the 0.2.0 shape back to 0.1.5: only the provider entry remains in
+    // describe(), and the service answers resolved sections through `get`.
+    const providerEntry = context.settings.describe()[0]
+    context.settings.describe = () => [providerEntry]
+    context.settings.get = (ns) => (ns === 'agent-default-model' ? { reasoningEffort: 'high' } : undefined)
+
+    apply(context, { debounceMs: 0 })
+    await until(() => log.warn.length > 0, 'the audit warning')
+    assert.match(log.warn.join('\n'), /acme\/qwen3\.8-flash has no "high" tier/)
   })
 })

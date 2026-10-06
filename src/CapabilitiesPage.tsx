@@ -12,8 +12,9 @@ import type { ReactNode } from 'react'
 import { useCallback, useState, useSyncExternalStore } from 'react'
 import type { CountField, ImageMode, ModelDraft, PathOp, ProviderDraft } from './capabilities.ts'
 import { buildMutateOps, countPresets, countValue, draftsKey, invalidField, parseProviders, presetLabel, presetListId } from './capabilities.ts'
+import type { ReasoningTiersKey } from './locales.ts'
 
-/** Raw snapshot face the bound settings scope serves (structurally typed). */
+/** Raw snapshot face the bound settings form serves (structurally typed). */
 export interface CapabilitiesSnapshot {
   status: 'loading' | 'ready' | 'unavailable'
   value: unknown
@@ -22,19 +23,20 @@ export interface CapabilitiesSnapshot {
   writable: boolean
 }
 
-/** What the section's inject face hands the page. */
+/** What the section's inject face hands the page; `t` arrives as the locale seat. */
 export interface CapabilitiesFace {
   scope: {
     getSnapshot(): CapabilitiesSnapshot
     subscribe(listener: () => void): () => void
-    mutate(ops: readonly PathOp[], expectedRevision?: number): Promise<void>
+    /** Resolves whether the Host accepted the write (0.2.0 forms answer by boolean). */
+    mutate(ops: readonly PathOp[], expectedRevision?: number): Promise<boolean>
   }
-  t: (key: string) => string
+  t: (key: ReasoningTiersKey) => string
 }
 
 type Message = { readonly route: string; readonly kind: 'ok' | 'conflict' | 'error'; readonly text: string }
 
-/** The settings-page entry: subscribes the scope and remounts the body per revision. */
+/** The settings-page entry: subscribes the form and remounts the body per revision. */
 export function CapabilitiesPage(props: CapabilitiesFace): ReactNode {
   const snapshot = useSyncExternalStore(props.scope.subscribe, props.scope.getSnapshot, props.scope.getSnapshot)
   return <CapabilitiesBody key={String(snapshot.revision ?? 'none')} {...props} snapshot={snapshot} />
@@ -69,18 +71,22 @@ function CapabilitiesBody(props: CapabilitiesFace & { snapshot: CapabilitiesSnap
       setBusy(p.route)
       setMessage(undefined)
       try {
-        await scope.mutate(
+        const accepted = await scope.mutate(
           buildMutateOps({ ...p, models: rows.map((row) => ({ ...row, id: row.id.trim() })) }),
           snapshot.revision,
         )
-        setMessage({ route: p.route, kind: 'ok', text: t('saved') })
+        // 0.2.0 answers by boolean and never throws for a refusal: `false`
+        // means the write was not accepted — overwhelmingly a revision that
+        // moved since this body was drafted (the controller already re-read
+        // the document; the fresh revision remounts this body).
+        setMessage(
+          accepted
+            ? { route: p.route, kind: 'ok', text: t('saved') }
+            : { route: p.route, kind: 'conflict', text: t('saveConflict') },
+        )
       } catch (error) {
         const text = error instanceof Error ? error.message : String(error)
-        setMessage({
-          route: p.route,
-          kind: /conflict|revision|stale/i.test(text) ? 'conflict' : 'error',
-          text: `${t('saveFailed')}: ${text}`,
-        })
+        setMessage({ route: p.route, kind: 'error', text: `${t('saveFailed')}: ${text}` })
       } finally {
         setBusy(undefined)
       }
@@ -118,8 +124,9 @@ function CapabilitiesBody(props: CapabilitiesFace & { snapshot: CapabilitiesSnap
     <div>
       <PresetOptions field="context" />
       <PresetOptions field="max" />
-      {!snapshot.writable && <p className="dsh-rt-cap-hint">{t('readOnlyHint')}</p>}
-      {snapshot.writable && <p className="dsh-rt-cap-hint">{t('restartHint')}</p>}
+      {snapshot.status === 'loading' && <p className="dsh-rt-cap-hint">{t('loadingHint')}</p>}
+      {snapshot.status !== 'loading' && !snapshot.writable && <p className="dsh-rt-cap-hint">{t('readOnlyHint')}</p>}
+      {snapshot.status !== 'loading' && snapshot.writable && <p className="dsh-rt-cap-hint">{t('liveHint')}</p>}
       {providers.map((p) => {        const rows = rowsOf(p)
         const dirty = dirtyOf(p)
         return (

@@ -28,10 +28,11 @@ export type ReasoningTiersKey =
   | 'saving'
   | 'saved'
   | 'readOnlyHint'
-  | 'restartHint'
+  | 'liveHint'
   | 'unsavedHint'
   | 'saveConflict'
   | 'saveFailed'
+  | 'loadingHint'
   | 'addOverride'
   | 'modelIdPlaceholder'
   | 'modelIdRequired'
@@ -62,10 +63,11 @@ export const en: Record<ReasoningTiersKey, string> = {
   saving: 'Saving…',
   saved: 'Saved.',
   readOnlyHint: 'This deployment does not accept settings writes from the browser.',
-  restartHint: 'Restart DSH to apply.',
+  liveHint: 'Takes effect on the next request — no restart needed.',
   unsavedHint: 'Unsaved changes in this group.',
-  saveConflict: 'The configuration changed elsewhere — reload the page and re-apply.',
+  saveConflict: 'The configuration changed elsewhere — the page re-read it; re-apply your edit.',
   saveFailed: 'Save failed',
+  loadingHint: 'Loading the provider configuration…',
   addOverride: 'Add override',
   modelIdPlaceholder: 'model id as the endpoint accepts it',
   modelIdRequired: 'Every row needs a model id.',
@@ -90,10 +92,11 @@ export const zh: Record<ReasoningTiersKey, string> = {
   saving: '保存中…',
   saved: '已保存。',
   readOnlyHint: '当前部署不接受浏览器写入设置。',
-  restartHint: '重启 DSH 后生效。',
+  liveHint: '下一次请求即生效——无需重启。',
   unsavedHint: '该分组有未保存的修改。',
-  saveConflict: '配置已在别处被修改——请刷新页面后重试。',
+  saveConflict: '配置已在别处被修改——页面已重新读取，请再次应用你的修改。',
   saveFailed: '保存失败',
+  loadingHint: '正在读取提供商配置…',
   addOverride: '添加覆盖',
   modelIdPlaceholder: '端点接受的模型 id',
   modelIdRequired: '每一行都需要模型 id。',

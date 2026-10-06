@@ -1,7 +1,7 @@
 {
   "name": "dsh-reasoning-tiers",
-  "version": "0.3.0",
-  "description": "DeepSeek Harness 插件：为第三方模型提供商的模型自动匹配模型名称并补齐推理档位（reasoning effort），使思考强度选择器在官方模型选择器中可用；并在设置页提供「模型能力」页，可编辑每个已添加模型的上下文窗口/输出上限/图片多模态。Third-party DSH plugin that matches model ids against a built-in knowledge table, declares per-model reasoning tiers in the llm-pi-ai settings section, and adds a settings page for per-model context window, output cap and image modality.",
+  "version": "0.3.1",
+  "description": "DeepSeek Harness 插件：为第三方模型提供商的模型自动匹配模型名称并补齐推理档位（reasoning effort），使思考强度选择器在官方模型选择器中可用；并在设置页提供「模型能力」页，可编辑每个已添加模型的上下文窗口/输出上限/图片多模态。适配 DSH 0.2.0（settings/document-updated、configForms）。Third-party DSH plugin that matches model ids against a built-in knowledge table, declares per-model reasoning tiers in the llm-pi-ai settings section, and adds a settings page for per-model context window, output cap and image modality. Built against DSH 0.2.0; also runs on 0.1.5 hosts.",
   "keywords": [
     "dsh",
     "dsh-plugin",
@@ -71,19 +71,19 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.2",
-    "@deepseek-ai/dsh-home-paths": ">=0.1.5-rc.1",
-    "@deepseek-ai/dsh-llm": ">=0.1.5-rc.1",
-    "@deepseek-ai/dsh-settings": ">=0.1.5-rc.1"
+    "@deepseek-ai/dsh-home-paths": ">=0.1.5-rc.1 || >=0.2.0-rc.1",
+    "@deepseek-ai/dsh-llm": ">=0.1.5-rc.1 || >=0.2.0-rc.1",
+    "@deepseek-ai/dsh-settings": ">=0.1.5-rc.1 || >=0.2.0-rc.1"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "4.0.2",
-    "@deepseek-ai/dsh-client-locale": "0.1.5-rc.2",
-    "@deepseek-ai/dsh-client-ui-renderer": "0.1.5-rc.2",
-    "@deepseek-ai/dsh-client-ui-settings": "0.1.5-rc.2",
-    "@deepseek-ai/dsh-client-ui-slots": "0.1.5-rc.2",
-    "@deepseek-ai/dsh-home-paths": "0.1.5-rc.2",
-    "@deepseek-ai/dsh-llm": "0.1.5-rc.2",
-    "@deepseek-ai/dsh-settings": "0.1.5-rc.2",
+    "@deepseek-ai/cordis": "4.0.4",
+    "@deepseek-ai/dsh-client-locale": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-home-paths": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-llm": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-settings": "0.2.0-rc.2",
     "@types/node": "^24.0.0",
     "@types/react": "~18.3.1",
     "@types/react-dom": "~18.3.0",

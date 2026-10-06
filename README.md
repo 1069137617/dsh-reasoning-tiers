@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green.svg)](package.json)
-[![Tests](https://img.shields.io/badge/tests-92%20passing-brightgreen.svg)](#development)
+[![Tests](https://img.shields.io/badge/tests-93%20passing-brightgreen.svg)](#development)
 
 **Give third-party models a working reasoning-effort ladder — and editable model capabilities — in [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).**
 
@@ -11,6 +11,12 @@ their reasoning tiers in the `llm-pi-ai` settings section — so the effort sele
 DSH finally does something for models the pi-ai catalog does not describe. New in 0.2.0: a browser
 half that adds a **Model Capabilities** page to the settings panel, where each added model's
 context window, output cap, and image modality become editable fields.
+
+0.3.1 adapts to **DSH 0.2.0** (desktop 0.2.0-rc.2): the host half rides the renamed
+`settings/document-updated` event and reads resolved sections off `describe()` (0.2.0 dropped
+`settings.get`), and the browser half registers through the `configForms` service that replaced
+`settingsScope`. The 0.1.x event and `get()` stay supported in the host half; the capabilities
+page requires a 0.2.0 host.
 
 No adapter takeover, no request interception. The tier writes happen once, conservatively, and
 with an undo; the capabilities page only edits the provider's own settings through the standard
@@ -21,11 +27,11 @@ settings transport. 中文文档：[README.zh.md](README.zh.md)
 ## The problem is structural, not a missing toggle
 
 A model's selectable efforts come from exactly one place —
-`LlmResolvedModelInfo.reasoning` (`@deepseek-ai/dsh-llm/lib/types/types.d.ts:304-327`) — and the
+`LlmResolvedModelInfo.reasoning` (`@deepseek-ai/dsh-llm/lib/types/types.d.ts:377-382`) — and the
 pi-ai adapter omits it entirely for a model that carries no reasoning metadata:
 
 ```js
-// dsh-llm-pi-ai/lib/index.js:1715-1723
+// dsh-llm-pi-ai/lib/index.js:1726-1740 (0.2.0)
 function reasoningInfo(model, defaultLevel) {
   if (!model.reasoning) return {};   // every hand-declared model lands here
   ...
@@ -57,10 +63,11 @@ or straight from this repository:
 dsh plugin --profile web add git+https://github.com/1069137617/dsh-reasoning-tiers.git
 ```
 
-`prepare` builds `lib/` on install. Back up `~/.dsh/settings.yaml` first: the plugin edits the
-`llm-pi-ai` section of the profile it is installed into, and **bundle changes are read at boot**,
-so restart DSH afterwards (`patchReload: live` only hot-reloads the profile's own patch file).
-After a restart the plugin announces itself:
+`prepare` builds `lib/` on install. Back up the profile's `cordis.patch.yml` first: the plugin
+edits the `llm-pi-ai` section of the profile it is installed into, and **bundle changes are read
+at boot**, so restart DSH afterwards (`patchReload: live` only hot-reloads the profile's own patch
+file). On 0.2.0 that profile patch is the settings document (a legacy `~/.dsh/settings.yaml` is
+imported once at startup and renamed `.imported`). After a restart the plugin announces itself:
 
 ```
 [reasoning-tiers] mounted: autofill=true revert=false diagnose=true widenToGlobalEffort=false extraRules=0
@@ -169,9 +176,10 @@ meanings. The table is one array in `src/capabilities.ts` — edit it there to a
   id. An "Add override" row pins a capability for a catalog model without declaring it; an emptied
   dict is `unset`, returning the route to pure catalog inheritance.
 
-All writes go through the settings scope's revision-fenced `mutate`; a conflict (the configuration
-changed elsewhere) asks you to reload the page and re-apply. Where the deployment does not accept
-browser settings writes (memory mode) the page renders read-only. Changes apply after a restart.
+All writes go through the settings form's revision-fenced `mutate`; a refusal (the configuration
+changed elsewhere) resolves `false` — the form re-reads the document and the page asks you to
+re-apply. Where the deployment does not accept browser settings writes (memory mode) the page
+renders read-only. Writes take effect on the next request — no restart.
 
 **Out of scope:** `llm-deepseek` routes (a different adapter and namespace), and every namespace
 other than `llm-pi-ai`.
@@ -234,7 +242,7 @@ nothing is invented, and `xhigh`/`max` are never fabricated where a vendor does 
 npm install
 npm run build        # tsc -> lib/ (host) + esbuild -> lib/client.js (browser half)
 npm run typecheck    # both tsconfigs, no emit
-npm test             # node --test, 92 tests
+npm test             # node --test, 93 tests
 node scripts/dry-run.mjs [--widen] [settings-path]   # audit a settings.yaml, writes nothing
 node scripts/verify-install.mjs web                  # replay the host's bundle resolution
 ```

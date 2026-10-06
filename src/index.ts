@@ -2,26 +2,29 @@
  * `dsh-reasoning-tiers`: give third-party models their reasoning tiers.
  *
  * The problem is structural, not a missing toggle. A model's selectable efforts
- * come from exactly one place — `LlmResolvedModelInfo.reasoning`
- * (`@deepseek-ai/dsh-llm/lib/types/types.d.ts:304-327`) — and the pi-ai adapter
- * omits it entirely for a model that carries no reasoning metadata
- * (`dsh-llm-pi-ai/lib/index.js:1715-1723`, whose own comment names "every
- * hand-declared one" as that case). The official Models page has no field for
- * `reasoningEfforts` and no slot reaching a single model row, so the only
- * remaining lever is the provider's own settings section — which is what this
- * plugin writes, once, conservatively, and with an undo.
+ * come from exactly one place — `LlmResolvedModelInfo.reasoning` — and the
+ * pi-ai adapter omits it entirely for a model that carries no reasoning
+ * metadata (`dsh-llm-pi-ai/lib/index.js:1726-1740` in 0.2.0, whose own comment
+ * names "every hand-declared one" as that case). The official Models page has
+ * no field for `reasoningEfforts` and no slot reaching a single model row, so
+ * the only remaining lever is the provider's own settings section — which is
+ * what this plugin writes, once, conservatively, and with an undo.
  *
- * Why not an adapter: `LlmRuntime.registerAdapter` throws `DUPLICATE_ADAPTER`
- * for a route another plugin already owns
- * (`dsh-llm/lib/types/index.d.ts:241-248`), and `llm/stream` is the only
- * waterfall — whose loop-built requests are deep-frozen by contract. So there is
- * no interception point, and none is needed: capability is configuration.
+ * Host generations differ in two seams, and this module rides the live one:
+ * 0.2.0's settings service dropped `get(ns)` (the resolved section now travels
+ * on the `describe()` descriptor's `value`), and renamed the change event from
+ * `settings/updated` to `settings/document-updated`. Both shapes are read here,
+ * so one bundle mounts on either host.
+ *
+ * Why not an adapter: `registerAdapter` throws `DUPLICATE_ADAPTER` for a route
+ * another plugin already owns, and `llm/stream` is the only waterfall — whose
+ * loop-built requests are deep-frozen by contract. So there is no interception
+ * point, and none is needed: capability is configuration.
  *
  * @module dsh-reasoning-tiers
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import type { SettingsPathOp } from '@deepseek-ai/dsh-settings'
 import type { LlmResolvedModelInfo } from '@deepseek-ai/dsh-llm'
 import type { Plan } from './plan.ts'
@@ -124,13 +127,25 @@ export function apply(ctx: Context, raw: unknown = void 0): void {
     }
   }
 
-  ctx.on('settings/updated', (ns: SettingsNamespace) => {
+  // 0.2.0 renamed the document event: `settings/document-updated` announces the
+  // raw section moving as `(ns, revision)`, while 0.1.x's `settings/updated`
+  // carried the resolved value as `(ns, next, prev, source)`. Both name the
+  // namespace first, which is all this listener reads, so both are registered:
+  // a host emits exactly one of them, and an event with no emitter is inert.
+  const onSettingsChanged = (ns: unknown): void => {
     if (String(ns) !== PI_AI_NS) return
     // Guard against self-excitation: our own write lands while `running` is
     // still set, and a pass with nothing left to write emits nothing anyway.
     if (running) return
-    schedule('settings/updated')
+    schedule('settings')
+  }
+  ctx.on('settings/document-updated', (ns) => {
+    onSettingsChanged(ns)
   })
+  ;(ctx as unknown as { on(name: string, listener: (ns: unknown) => void): unknown }).on(
+    'settings/updated',
+    onSettingsChanged,
+  )
 
   /** Wait for the provider namespace to register, then run the boot pass. */
   const boot = (index: number): void => {
@@ -169,10 +184,16 @@ function readLayer(ctx: Context): { section: Record<string, unknown> | undefined
 
 /** The effort the deployment asks for by default, when one is configured. */
 function globalEffort(ctx: Context): string | undefined {
-  const value = ctx.settings.get(DEFAULT_MODEL_NS)
-  if (!isPlainObject(value)) return void 0
+  // 0.1.x hosts answered a namespace's resolved section through `get(ns)`;
+  // 0.2.0 dropped it and the resolved value rides the `describe()` descriptor.
+  const service = ctx.settings as Context['settings'] & { get?: (ns: string) => unknown }
+  const value =
+    typeof service.get === 'function'
+      ? service.get(DEFAULT_MODEL_NS)
+      : ctx.settings.describe().find((entry) => entry.ns === DEFAULT_MODEL_NS)?.value
+  if (!isPlainObject(value)) return undefined
   const effort = value.reasoningEffort
-  return typeof effort === 'string' && effort.length > 0 ? effort : void 0
+  return typeof effort === 'string' && effort.length > 0 ? effort : undefined
 }
 
 /** Ask the live model seam which tiers this exact route offers today. */
@@ -319,7 +340,7 @@ function stripCompat(patch: Record<string, unknown>): Record<string, unknown> {
  *
  * Three failures are invisible in the stock UI. A configured default effort that
  * no longer names a selectable tier fails mid-turn with
- * `UNSUPPORTED_REASONING_EFFORT` (`dsh-llm-pi-ai/lib/index.js:1693-1697`); a
+ * `UNSUPPORTED_REASONING_EFFORT` (`dsh-llm-pi-ai/lib/index.js:1708`); a
  * *flat* ladder — several tiers offered, all of them dispatching the same
  * request — shows a control that appears to do nothing; and a model outside the
  * catalog offers no tier at all. All three are named here, so the next

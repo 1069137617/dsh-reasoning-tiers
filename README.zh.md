@@ -5,6 +5,10 @@
 思考强度选择器真正可用；0.2.0 起新增浏览器半，在设置面板注册「模型能力」页，每个已添加模型的
 上下文窗口、输出上限、图片多模态都能直接编辑。English: [README.md](README.md)
 
+0.3.1 适配 **DSH 0.2.0**（桌面端 0.2.0-rc.2）：宿主半改听被改名的 `settings/document-updated`
+事件、从 `describe()` 读已解析段（0.2.0 删除了 `settings.get`）；浏览器半改走取代 `settingsScope`
+的 `configForms` 服务。宿主半仍兼容 0.1.x 的旧事件与 `get()`；模型能力页需要 0.2.0 宿主。
+
 MIT。不占用适配器、不拦截请求——档位只写设置，一次性、保守、可撤销；能力页也只走标准设置
 通道，改的是提供商自己的命名空间。
 
@@ -13,11 +17,11 @@ MIT。不占用适配器、不拦截请求——档位只写设置，一次性�
 ## 1. 这是结构性问题，不是少了个开关
 
 一个模型可选哪些档位，只来自 `LlmResolvedModelInfo.reasoning`
-（`@deepseek-ai/dsh-llm/lib/types/types.d.ts:304-327`）。pi-ai 适配器对**没有推理元数据的模型**
+（`@deepseek-ai/dsh-llm/lib/types/types.d.ts:377-382`）。pi-ai 适配器对**没有推理元数据的模型**
 直接省略该字段：
 
 ```js
-// dsh-llm-pi-ai/lib/index.js:1715-1723
+// dsh-llm-pi-ai/lib/index.js:1726-1740（0.2.0）
 function reasoningInfo(model, defaultLevel) {
   if (!model.reasoning) return {};   // 每个手写的模型都会落到这里
   ...
@@ -49,9 +53,10 @@ dsh plugin --profile web add dsh-reasoning-tiers
 dsh plugin --profile web add git+https://github.com/1069137617/dsh-reasoning-tiers.git
 ```
 
-`prepare` 会在安装时构建 `lib/`。**装之前先备份** `~/.dsh/settings.yaml`：插件会改它所装
+`prepare` 会在安装时构建 `lib/`。**装之前先备份** profile 的 `cordis.patch.yml`：插件会改它所装
 profile 的 `llm-pi-ai` 节，而且 **bundle 是启动期读取的**，所以装完要重启 DSH
-（`patchReload: live` 只热重载 profile 自己的 patch 文件）。重启后插件自报家门：
+（`patchReload: live` 只热重载 profile 自己的 patch 文件）。0.2.0 的设置文档就是这份 profile
+patch（旧版 `~/.dsh/settings.yaml` 会在启动时被一次性导入并改名为 `.imported`）。重启后插件自报家门：
 
 ```
 [reasoning-tiers] mounted: autofill=true revert=false diagnose=true widenToGlobalEffort=false extraRules=0
@@ -151,8 +156,9 @@ the same request, so the thinking-intensity control cannot change anything.
   「添加覆盖」可以在不声明模型的前提下钉死一个 catalog 模型的能力；字典清空则 `unset`，
   路由回到纯 catalog 继承。
 
-所有写入都走设置作用域带 revision 围栏的 `mutate`；冲突（配置在别处被改）会提示刷新页面重试。
-部署不接受浏览器写设置时（memory 模式）页面只读。改动重启后生效。
+所有写入都走设置表单带 revision 围栏的 `mutate`；被拒（配置在别处被改）会返回 `false`——
+表单会重读文档，页面提示你重新应用。部署不接受浏览器写设置时（memory 模式）页面只读。
+写入在下一次请求即生效——无需重启。
 
 **不在范围**：`llm-deepseek` 路由（另一个适配器与命名空间），以及 `llm-pi-ai` 以外的所有
 命名空间。
@@ -213,7 +219,7 @@ MiniMax M、GPT-5、o-series、Claude、Gemini thinking、Grok-4。每个条目�
 npm install
 npm run build        # tsc -> lib/（host 半）+ esbuild -> lib/client.js（浏览器半）
 npm run typecheck    # 两份 tsconfig，不产出
-npm test             # node --test，92 项
+npm test             # node --test，93 项
 node scripts/dry-run.mjs [--widen] [settings-path]   # 审计一份 settings.yaml，不写任何东西
 node scripts/verify-install.mjs web                  # 重放宿主的 bundle 解析链
 ```
